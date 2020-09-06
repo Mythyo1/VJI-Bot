@@ -1,1 +1,2 @@
-// .env CONFIG
+// ENV
+require('dotenv').config();
