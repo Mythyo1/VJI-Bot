@@ -4,7 +4,8 @@
   "description": "A discord bot.",
   "main": "index.js",
   "scripts": {
-    "test": "node ."
+    "test": "node .",
+    "start": "nodemon ."
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,12 @@
   },
   "homepage": "https://github.com/VJI-Dev/VJI-Bot#readme",
   "dependencies": {
-    "dotenv": "^8.2.0"
+    "colors": "^1.4.0",
+    "dotenv": "^8.2.0",
+    "moment": "^2.27.0",
+    "mongoose": "^5.10.4"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
   }
 }
