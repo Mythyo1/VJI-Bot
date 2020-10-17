@@ -1,6 +1,9 @@
 // ENV
 require('dotenv').config();
 
+const { Manager } = require('erela.js');
+
+
 // NPM packages
 const { Client, Collection } = require('eris');
 
@@ -23,6 +26,5 @@ client.functions = functions;
 ["module", "command"].forEach(handler => {
     require(`./handlers/${handler}`)(client);
 });
-
 
 client.connect();

@@ -29,9 +29,12 @@
     "erela.js": "^2.0.1",
     "erela.js-spotify": "^1.0.2",
     "eris": "^0.13.3",
+    "eris-collector": "^1.0.1",
+    "fs": "0.0.1-security",
     "humanize-duration": "^3.24.0",
     "moment": "^2.27.0",
-    "mongoose": "^5.10.4"
+    "mongoose": "^5.10.4",
+    "util": "^0.12.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
