@@ -7,9 +7,8 @@ module.exports.run = (client) => {
 
         // Define the prefix
         let guildDocument = await Guild.findOne({ id: message.channel.guild.id });
-        if (!guildDocument) await Guild.create({ id: message.channel.guild.id }, { new: true });
 
-        let prefix = guildDocument.prefix || "m!"
+        let prefix = guildDocument.prefix || "vji!"
         client.prefix = prefix;
 
         // Message checks

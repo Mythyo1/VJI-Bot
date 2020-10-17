@@ -1,7 +1,7 @@
 module.exports.run = (client) => {
     client.on('ready', async () => {
         client.editStatus('online', {
-            name: `vji!help | ModCord`, 
+            name: `vji!help | VJI Bot`, 
             type: 3,
         });
         client.logger.ready(`Logged in as ${client.user.username} | Users: ${client.users.size} | Guilds: ${client.guilds.size}`);

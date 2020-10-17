@@ -26,6 +26,9 @@
   "dependencies": {
     "colors": "^1.4.0",
     "dotenv": "^8.2.0",
+    "erela.js": "^2.0.1",
+    "erela.js-spotify": "^1.0.2",
+    "eris": "^0.13.3",
     "moment": "^2.27.0",
     "mongoose": "^5.10.4"
   },

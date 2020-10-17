@@ -9,19 +9,19 @@ module.exports.run = (client) => {
         if (!userDocument) await User.create({ id: member.id });
     });
 
-    client.on('guildCreate', async (guild) => {
-        let guildDocument = await Guild.findOne({ id: guild.id });
-        if (!guildDocument) await Guild.create({ id: guild.id });
-    });
+    // client.on('guildCreate', async (guild) => {
+    //     let guildDocument = await Guild.findOne({ id: guild.id });
+    //     if (!guildDocument) await Guild.create({ id: guild.id });
+    // });
 
-    client.on('messageCreate', async (message) => {
+    // client.on('messageCreate', async (message) => {
 
-        let guildDocument = await Guild.findOne({ id: message.channel.guild.id });
-        if (!guildDocument) await Guild.create({ id: message.channel.guild.id });
+    //     let guildDocument = await Guild.findOne({ id: message.channel.guild.id });
+    //     if (!guildDocument) await Guild.create({ id: message.channel.guild.id });
 
-        if (message.author.bot) return;
+    //     if (message.author.bot) return;
 
-        let userDocument = await User.findOne({ id: message.author.id });
-        if (!userDocument) await User.create({ id: message.author.id });
-    });
+    //     let userDocument = await User.findOne({ id: message.author.id });
+    //     if (!userDocument) await User.create({ id: message.author.id });
+    // });
 };
