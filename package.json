@@ -29,6 +29,7 @@
     "erela.js": "^2.0.1",
     "erela.js-spotify": "^1.0.2",
     "eris": "^0.13.3",
+    "humanize-duration": "^3.24.0",
     "moment": "^2.27.0",
     "mongoose": "^5.10.4"
   },
