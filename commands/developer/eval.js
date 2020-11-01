@@ -2,8 +2,8 @@ const { inspect } = require('util');
 const User = require('../../models/User');
 
 module.exports.run = async (client, message, args) => {
-    let { admin } = await User.findOne({ id: message.author.id });
-    if (admin != true) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.permError(this.help.permissions) });
+    let userData = await User.findOne({ id: message.author.id });
+    if (userData.admin != true) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.permError(this.help.permissions) });
     // command async block
     try {
         const result = await execute(message, args);

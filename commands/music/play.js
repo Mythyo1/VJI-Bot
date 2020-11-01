@@ -1,8 +1,7 @@
-const { Utils } = require('erela.js');
+const humanizeDuration = require("humanize-duration");
 const { MessageCollector } = require('eris-collector');
 
 module.exports.run = async (client, message, args) => {
-
     let userVoice = message.channel.guild.members.get(message.author.id)
     let voiceChannel = userVoice.voiceState.channelID
     if (voiceChannel == null) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.error(client.functions.errorMessage(client), `Please make sure you're connected to a voice channel!`) });
@@ -43,99 +42,101 @@ module.exports.run = async (client, message, args) => {
 
     if (!args[0]) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.syntaxError(this.help.syntax) });
     
-    const player = client.manager.create({
-        guild: message.channel.guild.id,
-        textChannel: message.channel.id,
-        voiceChannel
-    });
+    try {
+        const player = client.manager.create({
+            guild: message.channel.guild.id,
+            textChannel: message.channel.id,
+            voiceChannel
+        });
 
-    player.connect();
 
-    client.manager.search(args.join(" "), message.author).then(async res => {
-        switch (res.loadType) {
-            case "TRACK_LOADED": 
-                console.log(res.tracks[0])
-                player.queue.add(res.tracks[0]);
-                client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Adding \`${res.tracks[0].title}\` to the queue.` } });
-                if (!player.playing) player.play();
-                break;
+        player.connect();
 
-            case "SEARCH_RESULT":
-                let index = 1;
-                const tracks = res.tracks.slice(0, 5);
-                client.createMessage(message.channel.id, {
-                    embed: {
-                        title: `🎵 ${client.user.username}'s | Music`,
-                        description: `${tracks.map(song => `**${index++} - ${song.title}**`).join('\n')}`,
-                        color: 0x303136,
-                        footer: {
-                            text: `Your response time closes within the next 30 seconds. Type 'cancel' to cancel the selection.`,
-                            icon_url: client.user.avatarURL
-                       }
-                    }
-                });
-        
-                let filter = (m) => m.author.id === message.author.id && new RegExp(`^([1-5]|cancel)$`, "i").test(m.content);
+        client.manager.search(args.join(" "), message.author).then(async res => {
+            switch (res.loadType) {
+                case "NO_MATCHES":
+                    if (!player.queue.current) player.destroy();
+                    client.createMessage(message.channel.id, { 
+                        embed: {
+                            title: `🎵 ${client.user.username}'s | Music`,
+                            color: 0x303136,
+                            description: `**No matches were found.**`
+                        }
+                    });
+                    break;
 
-                let collector = new MessageCollector(client, message.channel, filter, {
-                    time: 1000 * 30,
-                    max: 1
-                });
+                case "TRACK_LOADED": 
+                    player.queue.add(res.tracks[0]);
+                    if (!player.playing && !player.paused && !player.queue.length) player.play();  
+                    client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Adding \`${res.tracks[0].title}\` to the queue.` } });
+                    break;
 
-                collector.on('collect', (m) => {
-                    if (/cancel/i.test(m.content)) return collector.stop("cancelled")
+                case "PLAYLIST_LOADED":
+                    res.playlist.tracks.forEach(track => player.queue.add(track));
+                    const duration = humanizeDuration(res.playlist.tracks.reduce((acc, cur) => ({duration: acc.duration + cur.duration})).duration, true);
+                    client.createMessage(message.channel.id, {
+                        embed: {
+                            title: `🎵 ${client.user.username}'s | Music`,
+                            color: 0x303136,
+                            description: `**Adding \`${res.playlist.tracks.length} songs the queue. \`\n\`\`\`fix\nDuration: ${duration}\`\`\`**`
+                        }
+                    });
+                    if (!player.playing && !player.paused && player.queue.size === res.tracks.length) player.play();
+                    break;
 
-                    const track = tracks[Number(m.content) - 1];
-                    player.queue.add(track);
+                case 'SEARCH_RESULT':
+                    let max = 5, collected, filter = (m) => m.author.id === message.author.id && /^(\d+|cancel)$/i.test(m.content);
+                    if (res.tracks.length < max) max = res.tracks.length;
 
-                    client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Adding \`${track.title}\` to the queue.` } });
+                    client.createMessage(message.channel.id, {
+                        embed: {
+                            title: `🎵 ${client.user.username}'s | Music`,
+                            description: `${res.tracks.slice(0, max).map((track, index) => `**${++index} - ${track.title}**`).join('\n')}`,
+                            color: 0x303136,
+                            footer: {
+                                text: `Your response time closes within the next 30 seconds. Type 'cancel' to cancel the selection.`,
+                                icon_url: client.user.avatarURL
+                            }
+                        }
+                    });
 
-                    if (!player.playing && !player.paused && !player.queue.length) player.play();
-                });
+                    let collector = new MessageCollector(client, message.channel, filter, {
+                        time: 1000 * 30,
+                    });
 
-                collector.on('end', (_, reason) => {
-                    if (["time", "cancelled"].includes(reason)) return client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Cancelled selection.` } });
-                    
-                });
+                    collector.on('collect', (m) => {
+                        if (/cancel/i.test(m.content)) return collector.stop("cancelled")
 
-                break;
+                        const index = Number(m.content) - 1;
+                        if (index < 0 || index > (max - 1)) return client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `The number you provided too small or too big (1-${max}).` } });
+                
+                        const track = res.tracks[index];
+                        player.queue.add(track);
 
-            case "PLAYLIST_LOADED":
-                res.playlist.tracks.forEach(track => player.queue.add(track));
-                const duration = Utils.formatTime(res.playlist.tracks.reduce((acc, cur) => ({duration: acc.duration + cur.duration})).duration, true);
-                client.createMessage(message.channel.id, {
-                    embed: {
-                        title: `🎵 ${client.user.username}'s | Music`,
-                        color: 0x303136,
-                        description: `**Adding \`${res.playlist.tracks.length} songs the queue. \`\n\`\`\`fix\nDuration: ${duration}\`\`\`**`
-                    }
-                });
-                if (!player.playing) player.play();
-                break;
+                        client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Adding \`${track.title}\` to the queue.` } });
 
-            case "LOAD_FAILED":
-                if (!player.queue.current) player.destroy();
-                new Error(res.exception.message);
-                client.createMessage(message.channel.id, { 
-                    embed: {
-                        title: `🎵 ${client.user.username}'s | Music`,
-                        color: 0x303136,
-                        description: `**An error occured. Music failed to start.**`
-                    }
-                });
-                break;
+                        if (!player.playing && !player.paused && !player.queue.length) player.play();
 
-            case "NO_MATCHES":
-                if (!player.queue.current) player.destroy();
-                client.createMessage(message.channel.id, { 
-                    embed: {
-                        title: `🎵 ${client.user.username}'s | Music`,
-                        color: 0x303136,
-                        description: `**No matches were found.**`
-                    }
-                });
-        }
-    }).catch(err => client.createMessage(message.channel.id, { embed: client.functions.embedUtils.error(client.functions.errorMessage(client), err.toString()) }));
+                        collector.stop();
+                    });
+
+                    collector.on('end', (_, reason) => {
+                        if (["time", "cancelled"].includes(reason)) return client.createMessage(message.channel.id, { embed: { title: `🎵 ${client.user.username}'s | Music`, color: 0x303136, description: `Cancelled selection.` } });
+                        if (!player.queue.current) player.destroy();
+                    });
+
+                    break;
+            }
+        });
+    } catch {
+        client.createMessage(message.channel.id, { 
+            embed: {
+                title: `🎵 ${client.user.username}'s | Music`,
+                color: 0x303136,
+                description: `**An error occured. Music failed to start.**`
+            }
+        });
+    }
 };
 
 module.exports.help = {

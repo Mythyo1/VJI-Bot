@@ -1,9 +1,6 @@
 // ENV
 require('dotenv').config();
 
-const { Manager } = require('erela.js');
-
-
 // NPM packages
 const { Client, Collection } = require('eris');
 

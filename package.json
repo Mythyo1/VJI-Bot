@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/VJI-Dev/VJI-Bot#readme",
   "dependencies": {
+    "bot-utils": "^1.4.2",
     "colors": "^1.4.0",
     "dotenv": "^8.2.0",
     "erela.js": "^2.0.1",
@@ -34,6 +35,7 @@
     "humanize-duration": "^3.24.0",
     "moment": "^2.27.0",
     "mongoose": "^5.10.4",
+    "random-puppy": "^1.1.0",
     "util": "^0.12.3"
   },
   "devDependencies": {

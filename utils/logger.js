@@ -1,4 +1,4 @@
-const moment = require('moment')
+const moment = require("moment");
 const colors = require("colors");
 
 module.exports = {
@@ -21,8 +21,16 @@ module.exports = {
     },
 
     error: function(ctx) {
+        let line = [];
         const timestamp = `[${moment().format("YYYY-MM-DD HH:mm:ss")}]`;
-        console.log(`${timestamp} ${colors.bgRed("[ERROR]")}: ${ctx}`);
+        let lineSize = timestamp.length + ctx.length + 9
+        while (!line[lineSize]) { line.push('-') };
+        console.log(`+${line.join("")}+\n|${timestamp} ${colors.bgRed("[ERROR]")}: ${ctx}|\n+${line.join("")}+`);
+    },
+      
+    debug: function(ctx) { 
+        const timestamp = `[${moment().format("YYYY-MM-DD HH:mm:ss")}]`;
+        console.log(`${timestamp} ${colors.bgGreen("[DEBUG]")}: ${ctx}`);
     },
 
     disconnect: function(ctx) {
@@ -34,4 +42,4 @@ module.exports = {
         const timestamp = `[${moment().format("YYYY-MM-DD HH:mm:ss")}]`;
         console.log(`${timestamp} ${colors.bgGreen("[RCNT]")}: ${ctx}`);
     }
-}
+};
