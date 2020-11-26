@@ -1,73 +1,150 @@
-module.exports.run = async (client, message, args) => {
-    // Permission Check
-    if (!message.member.permission.has('manageMessages')) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.permError(this.help.permissions) });
-    
-    // User Input
-    if (!args[0]) return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.syntaxError(this.help.syntax) });
-    
-    // User Check
-    client.functions.getMember(client, message, args[0]).then(async u => {
+const BaseCommand = require('../structures/BaseCommand');
+const moment = require('moment-timezone');
 
-        if (u.member == null || u.member == undefined) return client.createMessage(message.channel.id, { embed: { title: `I couldn't find the wanted user.\nIssue: \`${args[0]} not found.\``}});
-
-        // Get reason
-        args.shift();
-        let reason = args.join(" ")
-        if (!args[0]) reason = "No reason specified!"
-
-        let mUserRoles = message.channel.guild.members.get(u.member.id).roles[0];
-        let r1 = message.channel.guild.roles.get(mUserRoles).position;
-
-        let mBotRoles = message.channel.guild.members.get(client.user.id).roles[0];
-        let r2 = message.channel.guild.roles.get(mBotRoles).position;
-
-        if (r1 > r2) return client.createMessage(message.channel.id, { 
-            embed: {
-                title: `<a:Error:720595777835237386> \`${client.functions.errorMessage(client)}\``, 
-                description: `I'm missing permissions please make sure the ModCord role is at the top of the roles.`, 
-                color: 0xDC3C3C,
-                image: {
-                    url: "https://gyazo.com/bd5d47c62e8eba4a5deec4010e07f52a.png"
-                },
-            }  
+class MuteCommand extends BaseCommand {
+    constructor() {
+        super({
+            name: 'mute',
+            category: bu.CommandType.ADMIN,
+            usage: 'mute <user> [flags]',
+            info: 'Gives the user a special muted role. On first run, this role will be created. The bot needs to be able to `manage roles` to create and assign the role, and `manage channels` to configure the role. You are able to manually configure the role without the bot, but the bot has to make it. Deleting the muted role causes it to be regenerated.\nIf the bot has permissions for it, this command will also voice-mute the user.\nIf mod-logging is enabled, the mute will be logged.\nYou can also specify a length of time the user should be muted for, using formats such as `1 hour 2 minutes` or `1h2m`.',
+            flags: [{ flag: 'r', word: 'reason', desc: 'The reason for the mute.' },
+            {
+                flag: 't',
+                word: 'time',
+                desc: 'The amount of time to mute for, formatted as \'1 day 2 hours 3 minutes and 4 seconds\', \'1d2h3m4s\', or some other combination.'
+            }]
         });
-        
-        let muteRole = message.channel.guild.roles.find(r => r.name === "Muted");
-        if(!muteRole) {
-            try {
-                muteRole = await message.channel.guild.createRole({
-                    name: "Muted",
-                    color: 0x514f48,
-                    permissions: 0
+    }
+
+    async execute(msg, words, text) {
+        let mutedrole = await bu.guildSettings.get(msg.channel.guild.id, 'mutedrole');
+
+        if (!mutedrole) {
+            if (msg.channel.guild.members.get(bot.user.id).permission.json.manageRoles) {
+                let role = await bot.createRole(msg.channel.guild.id, {
+                    color: 16711680,
+                    name: 'Muted',
+                    permissions: 0,
+                    reason: 'Automatic muted role generation'
                 });
-
-                let c = message.channel.guild.channels.map(x => x.id);
-                c.forEach((c, id) => message.channel.guild.channels.get(c).editPermission(muteRole.id, 1180672, 2529344, 'role', `${client.user.username} muting system config.`));
-
-            } catch (err) {
-                return client.createMessage(message.channel.id, { embed: client.functions.embedUtils.error(client.functions.errorMessage(client), `I couldn't create a Mute role. Please make sure I have the the \`Manage Roles\` permission.`) })
+                await bu.guildSettings.set(msg.channel.guild.id, 'mutedrole', role.id);
+                if (msg.channel.guild.members.get(bot.user.id).permission.json.manageChannels) {
+                    var channels = msg.channel.guild.channels.map(m => m);
+                    console.debug(channels.length);
+                    for (var i = 0; i < channels.length; i++) {
+                        bot.editChannelPermission(channels[i].id, role.id, 0, 2048, 'role', 'Automatic muted role configuration').catch(logError);
+                    }
+                    this.execute(msg, words, text);
+                } else {
+                    bu.send(msg, `I created a \`muted\` role, but don't have permissions to configure it! Either configure it yourself, or make sure I have the \`manage channel\` permission, delete the \`muted\` role, and try again.`);
+                }
+            } else {
+                bu.send(msg, `I don't have enough permissions to create a \`muted\` role! Make sure I have the \`manage roles\` permission and try again.`);
+            }
+            return;
+        } else {
+            if (!msg.channel.guild.roles.get(mutedrole)) {
+                await bu.send(msg, `Couldn't find the muted role! Attempting to regenerate it...`);
+                await bu.guildSettings.remove(msg.channel.guild.id, 'mutedrole');
+                await this.execute(msg, words, text);
+                return;
             }
         }
-        
-        if (u.member.roles.includes(muteRole.id) == true) return client.createMessage(message.channel.id, { embed: { description: `${u.member.user.username} is already muted.`, color: 0xDC3C3C } });
+        if (words.length > 1) {
+            if (msg.channel.guild.members.get(bot.user.id).permission.json.manageRoles) {
+                let role = msg.guild.roles.get(mutedrole);
+                //        if (msg.member.permission.json.manageRoles) {
+                if (words[1]) {
+                    var user = await bu.getUser(msg, words[1]);
+                    if (!user) {
+                        await bu.send(msg, `I couldn't find that user!`);
+                        return;
+                    }
+                    var member = msg.channel.guild.members.get(user.id);
+                    if (!member) {
+                        await bu.send(msg, `I couldn't find that user!`);
+                        return;
+                    }
+                    var botPos = bu.getPosition(msg.channel.guild.members.get(bot.user.id));
+                    console.debug(role.position, botPos);
+                    if (role.position >= botPos) {
+                        await bu.send(msg, `I can't assign the muted role! (it's higher than or equal to my top role)`);
+                        return;
+                    }
+                    let voiceMute = msg.guild.members.get(bot.user.id).permission.json.voiceMuteMembers;
+                    /*
+                    var userPos = bu.getPosition(msg.member);
+                    var targetPos = role.position;
+                    if (targetPos >= botPos) {
+                        bu.send(msg, `I don't have permission to assign the muted role!\nError: target is higher than me in the role heirarchy.`);
+                        return;
+                    }
+                    if (targetPos >= userPos) {
+                        bu.send(msg, `You don't have permission to assign the muted role!\nError: target is higher than you in the role heirarchy.`);
+                        return;
+                    }
+                    */
+                    if (member.roles.indexOf(mutedrole) > -1) {
+                        bu.send(msg, 'That user is already muted!');
+                    } else {
+                        try {
+                            let reason, fullReason;
+                            let input = bu.parseInput(this.flags, words);
+                            if (input.r) {
+                                reason = input.r.join(' ');
+                                fullReason = `[ ${bu.getFullName(msg.author)} ] ${reason || ''}`;
+                            }
+                            await bot.addGuildMemberRole(msg.channel.guild.id, user.id, mutedrole, encodeURIComponent(fullReason));
 
-        u.member.addRole(muteRole.id)
-            .catch((err) => client.createMessage(message.channel.id, { embed: client.functions.embedUtils.error(client.functions.errorMessage(client), `I don't have the permission to add the role.\`\`\`${err}\`\`\``) }))
+                            // discord started erroring on voiceMute if the user wasn't in a voice channel (thanks, discord!)
+                            // so, now we gotta make two calls i guess
+                            // TODO: check if user is in a voice channel
+                            if (voiceMute) {
+                                try {
+                                    await bot.editGuildMember(msg.channel.guild.id, user.id, {
+                                        mute: true
+                                    }, encodeURIComponent(fullReason));
+                                } catch (err) { /* no-op */ }
+                            }
 
-        // Mute message
-        let userDMChannel = await client.getDMChannel(u.member.user.id)
-        return client.createMessage(message.channel.id, { embed: { color: 0xDC3C3C, description: `**${u.member.user.username}**\`(${u.member.user.id})\` was muted by **${message.author.username}**\`(${message.author.id})\` for \`${reason}\`.`}})
-            .then(() => {
-                client.createMessage(userDMChannel.id, { embed: client.functions.muteEmbed.muted(u.member, message, reason)})
-            }).catch(err => client.createMessage(message.channel.id, { embed: client.functions.embedUtils.error(client.functions.errorMessage(client), `${u.member.user.username} was muted. However, I couldn't send a dm.`) }));
-    });
+                            bu.logAction(msg.channel.guild, user, msg.author, 'Mute', reason, bu.ModLogColour.MUTE);
+                            let suffix = '';
+                            if (input.t) {
+                                let duration = bu.parseDuration(input.t.join(' '));
+                                if (duration.asMilliseconds() > 0) {
+                                    await r.table('events').insert({
+                                        type: 'unmute',
+                                        source: msg.guild.id,
+                                        user: user.id,
+                                        content: `${user.username}#${user.discriminator}`,
+                                        guild: msg.guild.id,
+                                        duration: duration.toJSON(),
+                                        role: mutedrole,
+                                        endtime: r.epochTime(moment().add(duration).unix()),
+                                        starttime: r.epochTime(moment().unix())
+                                    });
+                                    suffix = `The user will be unmuted ${duration.humanize(true)}.`;
+                                } else {
+                                    suffix = `The user was muted, but the duration was either 0 seconds or improperly formatted so they won't automatically be unmuted.`;
+                                }
+                            }
+                            bu.send(msg, ':ok_hand: ' + suffix);
+                        } catch (err) {
+                            bu.send(msg, `Failed to assign the muted role! Please check your permission settings and command and retry.\n If you still can't get it to work, please report it to me by doing \`b!report <your issue>\` with the following:\`\`\`\n${err.message}\n${err.response}\`\`\``);
+                            throw err;
+                        }
+                    }
+                }
+            } else {
+                bu.send(msg, `I don't have permission to mute users! Make sure I have the \`manage roles\` permission and try again.`);
+            }
+        }
+    }
 }
 
-module.exports.help = {
-    name: "mute",
-    aliases: [],
-    syntax: "m!mute <user> [reason]",
-    description: "Mute a member on the server.",
-    category: "moderation",
-    permissions: ["Manage Messages"]
+function logError(err) {
+    console.error(err);
 }
+
+module.exports = MuteCommand;
